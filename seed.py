@@ -171,9 +171,6 @@ def main():
         table_classes = get_table_classes()
         handle_table_selection(table_classes, db_conn)
 
-import os
-import getpass
-
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
     USER = os.getenv('USER') or input('Entrer le nom utilisateur : ')
