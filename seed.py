@@ -160,9 +160,9 @@ def main():
     
     db_conn = DatabaseConnection(DATABASE, USER, SERVER, PASSWORD, PORT)
     
-    insert_data_choice(db_conn)
+    first_menu_choice(db_conn)
 
-def insert_data_choice(db_conn):
+def first_menu_choice(db_conn):
     SEPARATOR = '/////////////////////////////////////////////////////'
     display_initial_menu(SEPARATOR)
 
@@ -178,7 +178,7 @@ def insert_data_choice(db_conn):
         delete_data_for_all_table(db_conn)
     else:
         print('Erreur sélectionner un nombre présent dans les choix possible!!')
-        insert_data_choice(db_conn)
+        first_menu_choice(db_conn)
 
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
