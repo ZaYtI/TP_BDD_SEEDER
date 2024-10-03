@@ -4,6 +4,23 @@ import random
 import getpass
 import os
 from dotenv import load_dotenv
+import json
+
+
+#Load JSON field in constant
+with open('city.json', 'r') as fichier:
+    CITY = json.load(fichier)
+
+with open('activity.json', 'r') as fichier:
+    ACTIVITY = json.load(fichier)
+
+with open('activity.json', 'r') as fichier:
+    CHALLENGE = json.load(fichier)
+
+with open('team.json', 'r') as fichier:
+    TEAM = json.load(fichier)
+
+
 
 class DatabaseConnection:
     def __init__(self, database, username, server, password, port):
@@ -60,27 +77,29 @@ class BaseTable:
 class Activite(BaseTable):
     def __init__(self, db_conn):
         super().__init__(db_conn)
+        city = random.choice(CITY)
+        activity = random.choice(ACTIVITY)
         self.table_name = "Activite"
         self.attributes = {
-            "Nom": self.fake.last_name(),
-            "date_activite": self.fake.date(),
-            "lieu": self.fake.city(),
+            "Nom": activity['name'],
+            "date_activite": self.fake.date_this_century(False,True),
+            "lieu": city["nom"],
             "duree": random.randint(1,120),
             "descriptif": self.fake.text(),
             "nb_points": random.randint(0,1000),
             "nb_max": random.randint(0,1000)
         }
-
-        print(self.attributes)
-
+        CITY.remove(city)
+        ACTIVITY.remove(activity)
         self.create(self.table_name, self.attributes)
 
 class Equipe(BaseTable):
     def __init__(self, db_conn):
         super().__init__(db_conn)
+        team = random.choice(TEAM)
         self.table_name = "Equipe"
         self.attributes = {
-            "nom": self.fake.name(),
+            "nom": team['name'],
             "slogan": self.fake.catch_phrase(),
             "nb_points": random.randint(0,1000)
         }
@@ -107,22 +126,24 @@ class Formation(BaseTable):
         self.attributes = {
             "diplome" : random.choice(['Licence', 'Master', 'Doctorat', 'Diplôme', 'Certificat']),
             "annee" : self.fake.year(),
-            "departement" : self.fake.department_name()
+            "departement" : self.fake.country()
         }
         self.create(self.table_name,self.attributes)
 
 class Challenge(BaseTable):
     
     def __init__(self,db_conn):
-        super.__init__(db_conn)
+        super().__init__(db_conn)
         self.table_name = "Challenge"
+        challenge = random.choice(CHALLENGE)
         self.attributes = {
-            "nom": self.fake.word(),
+            "nom": f"Challenge : {challenge["name"]}",
             "date_challenge": self.fake.date(),
             "lieu":self.fake.country(),
             "duree":random.randint(1,120),
             "descriptif":self.fake.text()
         }
+        ACTIVITY.remove(challenge)
         self.create(self.table_name,self.attributes)
 
 class InscriptionActivite(BaseTable):
@@ -257,8 +278,10 @@ def delete_data_for_all_table(db_conn):
     tables=["etudiant","inscription_activite","inscription_challenge","activite","equipe","formation","challenge"]
     cur = db_conn.cursor()
     for i in tables:
-        query = f"DELETE FROM {i}"
+        query = f"DELETE FROM {i};"
         cur.execute(query)
+        reset_increment = f"TRUNCATE TABLE {i} RESTART IDENTITY CASCADE"
+        cur.execute(reset_increment)
     db_conn.commit()
     cur.close()
 
