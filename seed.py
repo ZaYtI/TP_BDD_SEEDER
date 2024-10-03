@@ -152,14 +152,18 @@ class InscriptionChallenge(BaseTable):
         }
         self.create(self.table_name,self.attributes)
 
-def main():
+def main():  
     load_dotenv()
 
     DATABASE, USER, SERVER, PASSWORD, PORT = get_database_credentials()
-    SEPARATOR = '/////////////////////////////////////////////////////'
+    
     
     db_conn = DatabaseConnection(DATABASE, USER, SERVER, PASSWORD, PORT)
     
+    insert_data_choice(db_conn)
+
+def insert_data_choice(db_conn):
+    SEPARATOR = '/////////////////////////////////////////////////////'
     display_initial_menu(SEPARATOR)
 
     choice = int(input("Entrer votre choix :"))
@@ -167,9 +171,14 @@ def main():
     if choice == 1:
         row_number = int(input("Combien de tuples voulez-vous insérer dans chaque table : "))
         insert_in_all_table(row_number, db_conn)
-    else:
+    elif (choice == 2):
         table_classes = get_table_classes()
         handle_table_selection(table_classes, db_conn)
+    elif (choice == 3):
+        delete_data_for_all_table(db_conn)
+    else:
+        print('Erreur sélectionner un nombre présent dans les choix possible!!')
+        insert_data_choice(db_conn)
 
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
@@ -186,6 +195,7 @@ def display_initial_menu(separator):
     print('\n')
     print('1. Ajouter des données dans toutes les tables')
     print('2. Ajouter des données en sélectionnant les tables')
+    print('3. Supprimer tout les enregistrement de tout les tables')
     print('\n')
     print(separator)
     print(separator)
@@ -247,6 +257,14 @@ def insert_in_all_table(row_number,db_conn):
         Etudiant(db_conn)
         InscriptionActivite(db_conn)
         InscriptionChallenge(db_conn)
+
+def delete_data_for_all_table(db_conn):
+    tables=["Etudiant","InscriptionActivite","InscriptionChallenge","Activite","Equipe","Formation","Challenge"]
+    cur = db_conn.cursor()
+    for i in tables:
+        query = f"DELETE FROM {i}"
+        cur.execute(query)
+    cur.close()
 
 if __name__ == "__main__":
     main()
