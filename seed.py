@@ -6,9 +6,9 @@ import os
 from dotenv import load_dotenv
 
 class DatabaseConnection:
-    def __init__(self, database, user, server, password, port):
+    def __init__(self, database, username, server, password, port):
         self.database = database
-        self.user = user
+        self.username = username
         self.server = server
         self.password = password
         self.port = port
@@ -18,8 +18,8 @@ class DatabaseConnection:
         if self.conn is None:
             self.conn = psycopg2.connect(
                 database=self.database,
-                user=self.user,
-                server=self.server,
+                user=self.username,
+                host=self.server,
                 password=self.password,
                 port=self.port
             )
@@ -62,7 +62,7 @@ class Activite(BaseTable):
         super().__init__(db_conn)
         self.table_name = "Activite"
         self.attributes = {
-            "Nom": random.choice(['Basket','Foot','Badminton','Handball','VTT','Cyclo','Bazoom']),
+            "Nom": self.fake.last_name(),
             "date_activite": self.fake.date(),
             "lieu": self.fake.city(),
             "duree": random.randint(1,120),
@@ -84,7 +84,6 @@ class Equipe(BaseTable):
             "slogan": self.fake.catch_phrase(),
             "nb_points": random.randint(0,1000)
         }
-        print(self.attributes)
         self.create(self.table_name, self.attributes)
 
 class Etudiant(BaseTable):
@@ -99,7 +98,6 @@ class Etudiant(BaseTable):
             "id_formation": random.choice(self.get_list_of_id_in_table('Formation')),
             "id_equipe": random.choice(self.get_list_of_id_in_table('Equipe'))
         }
-        print(self.attributes)
         self.create(self.table_name, self.attributes)
 
 class Formation(BaseTable):
@@ -111,7 +109,6 @@ class Formation(BaseTable):
             "annee" : self.fake.year(),
             "departement" : self.fake.department_name()
         }
-        print(self.attributes)
         self.create(self.table_name,self.attributes)
 
 class Challenge(BaseTable):
@@ -126,7 +123,6 @@ class Challenge(BaseTable):
             "duree":random.randint(1,120),
             "descriptif":self.fake.text()
         }
-        print(self.attributes)
         self.create(self.table_name,self.attributes)
 
 class InscriptionActivite(BaseTable):
@@ -138,7 +134,6 @@ class InscriptionActivite(BaseTable):
             "id_activite": random.choice(self.get_list_of_id_in_table('Activite')),
             "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant')),
         }
-        print(self.attributes)
         self.create(self.table_name,self.attributes)
 
 class InscriptionChallenge(BaseTable):
@@ -155,10 +150,10 @@ class InscriptionChallenge(BaseTable):
 def main():  
     load_dotenv()
 
-    DATABASE, USER, SERVER, PASSWORD, PORT = get_database_credentials()
+    DATABASE, USERNAME, SERVER, PASSWORD, PORT = get_database_credentials()
     
     
-    db_conn = DatabaseConnection(DATABASE, USER, SERVER, PASSWORD, PORT)
+    db_conn = DatabaseConnection(DATABASE, USERNAME, SERVER, PASSWORD, PORT).connect()
     
     first_menu_choice(db_conn)
 
@@ -182,7 +177,7 @@ def first_menu_choice(db_conn):
 
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
-    USER = os.getenv('USER') or input('Entrer le nom utilisateur : ')
+    USER = os.getenv('USERNAME') or input('Entrer le nom utilisateur : ')
     SERVER = os.getenv('SERVER') or input('Entrer le serveur : ')
     PASSWORD = os.getenv('PASSWORD') or getpass.getpass('Entrer le mot de passe : ')
     PORT = int(os.getenv('PORT')) or int(input('Entrer le port : '))
@@ -259,11 +254,12 @@ def insert_in_all_table(row_number,db_conn):
         InscriptionChallenge(db_conn)
 
 def delete_data_for_all_table(db_conn):
-    tables=["Etudiant","InscriptionActivite","InscriptionChallenge","Activite","Equipe","Formation","Challenge"]
+    tables=["etudiant","inscription_activite","inscription_challenge","activite","equipe","formation","challenge"]
     cur = db_conn.cursor()
     for i in tables:
         query = f"DELETE FROM {i}"
         cur.execute(query)
+    db_conn.commit()
     cur.close()
 
 if __name__ == "__main__":
