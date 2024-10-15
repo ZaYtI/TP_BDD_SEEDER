@@ -10,12 +10,6 @@ import json
 with open('city.json', 'r') as fichier:
     CITY = json.load(fichier)
 
-with open('activity.json', 'r') as fichier:
-    ACTIVITY = json.load(fichier)
-
-with open('activity.json', 'r') as fichier:
-    CHALLENGE = json.load(fichier)
-
 LIST_OF_INSCRIPTION_ROW = []
 
 
@@ -81,20 +75,16 @@ class BaseTable:
 class Activite(BaseTable):
     def __init__(self, db_conn):
         super().__init__(db_conn)
-        city = random.choice(CITY)
-        activity = random.choice(ACTIVITY)
         self.table_name = "Activite"
         self.attributes = {
-            "Nom": activity['name'],
+            "Nom": f'{self.fake.first_name} {self.fake.city_suffix}',
             "date_activite": self.fake.date_this_century(False,True),
-            "lieu": city["nom"],
+            "lieu": self.fake.city_name(),
             "duree": random.randint(1,120),
             "descriptif": self.fake.text(),
             "nb_points": random.randint(0,1000),
             "nb_max": random.randint(0,1000)
         }
-        CITY.remove(city)
-        ACTIVITY.remove(activity)
         self.create(self.table_name, self.attributes)
 
 class Equipe(BaseTable):
@@ -138,15 +128,13 @@ class Challenge(BaseTable):
     def __init__(self,db_conn):
         super().__init__(db_conn)
         self.table_name = "Challenge"
-        challenge = random.choice(CHALLENGE)
         self.attributes = {
-            "nom": f"Challenge : {challenge['name']}",
+            "nom": f"Challenge : f'{self.fake.prefix()} {self.fake.city_suffix}'",
             "date_challenge": self.fake.date(),
             "lieu":self.fake.country(),
             "duree":random.randint(1,120),
             "descriptif":self.fake.text()
         }
-        CHALLENGE.remove(challenge)
         self.create(self.table_name,self.attributes)
 
 class InscriptionChallenge(BaseTable):
