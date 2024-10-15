@@ -24,7 +24,6 @@ CREATE TABLE equipe (
     nom VARCHAR(255),
     slogan VARCHAR(255),
     nb_points INT DEFAULT 0,
-    CONSTRAINT UC_Nom UNIQUE (Nom)
 );
 
 CREATE TABLE etudiant (
@@ -48,7 +47,6 @@ CREATE TABLE activite (
     descriptif TEXT,
     nb_points INT,
     nb_max INT,
-    CONSTRAINT UC_NomActivite UNIQUE (Nom)
 );
 
 CREATE TABLE inscription_activite (
@@ -68,7 +66,6 @@ CREATE TABLE challenge (
     descriptif TEXT,
     nb_points INT,
     nb_equipes INT,
-    CONSTRAINT UC_NomChallenge UNIQUE (Nom)
 );
 
 CREATE TABLE inscription_challenge (
