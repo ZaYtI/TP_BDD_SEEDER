@@ -7,12 +7,6 @@ from dotenv import load_dotenv
 import json
 
 
-with open('city.json', 'r') as fichier:
-    CITY = json.load(fichier)
-
-LIST_OF_INSCRIPTION_ROW = []
-
-
 
 class DatabaseConnection:
     def __init__(self, database, username, server, password, port):
