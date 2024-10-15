@@ -154,18 +154,18 @@ class InscriptionChallenge(BaseTable):
     def insert_inscription_challenge(self):
         insert_row = 0
         for i in range(1,self.row + 1):
-            if(insert_row < self.row):
                 nb_equipe = random.randint(1,10)
                 list_of_id_equipe = random.sample(self.get_list_of_id_in_table('Equipe','id_equipe'),nb_equipe)
                 for j in list_of_id_equipe:
-                    attributes={
-                        "id_challenge": i,
-                        "id_equipe": j
-                    }
-                    self.create(self.table_name,attributes)
-                    insert_row+=1
-            else:
-                break
+                    if(insert_row <= self.row):
+                        attributes={
+                            "id_challenge": i,
+                            "id_equipe": j
+                        }
+                        self.create(self.table_name,attributes)
+                        insert_row+=1
+                    else:
+                        break
 
     def __init__(self, db_conn,row):
         super().__init__(db_conn)
@@ -177,18 +177,18 @@ class InscriptionActivite(BaseTable):
     def insert_inscription_activite(self):
         insert_row = 0
         for i in range(1,self.row + 1):
-            if(insert_row < self.row):
                 nb_etu = random.randint(1,10)
                 list_of_id_etu = random.sample(self.get_list_of_id_in_table('Etudiant','id_etudiant'),nb_etu)
                 for j in list_of_id_etu:
-                    attributes={
-                        "id_activite": i,
-                        "id_etudiant": j
-                    }
-                    self.create(self.table_name,attributes)
-                    insert_row+=1
-            else:
-                break
+                    if(insert_row <= self.row):
+                        attributes={
+                            "id_activite": i,
+                            "id_etudiant": j
+                        }
+                        self.create(self.table_name,attributes)
+                        insert_row+=1
+                    else:
+                        break
 
     def __init__(self, db_conn,row):
         super().__init__(db_conn)
