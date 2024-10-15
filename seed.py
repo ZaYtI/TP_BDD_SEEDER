@@ -4,7 +4,7 @@ import random
 import getpass
 import os
 from dotenv import load_dotenv
-import json
+from tqdm import tqdm
 
 
 
@@ -135,7 +135,7 @@ class InscriptionChallenge(BaseTable):
 
     def insert_inscription_challenge(self):
         insert_row = 0
-        for i in range(1,self.row + 1):
+        for i in tqdm(range(1,self.row + 1), desc="Insertion des challenges"):
                 nb_equipe = random.randint(1,10)
                 list_of_id_equipe = random.sample(self.get_list_of_id_in_table('Equipe','id_equipe'),nb_equipe)
                 for j in list_of_id_equipe:
@@ -158,7 +158,8 @@ class InscriptionChallenge(BaseTable):
 class InscriptionActivite(BaseTable):
     def insert_inscription_activite(self):
         insert_row = 0
-        for i in range(1,self.row + 1):
+        
+        for i in tqdm(range(1,self.row + 1), desc="Insertion des activité"):
                 nb_etu = random.randint(1,10)
                 list_of_id_etu = random.sample(self.get_list_of_id_in_table('Etudiant','id_etudiant'),nb_etu)
                 for j in list_of_id_etu:
@@ -273,18 +274,24 @@ def display_table_selection_menu():
     print(SEPARATOR)
     print('\n')
 
-def insert_in_all_table(row_number,db_conn):
-    for _ in range(row_number):
+def insert_in_all_table(row_number, db_conn):
+    print("Insertion dans Formation, Equipe, Activite, Challenge...")
+    for _ in tqdm(range(row_number), desc="Formation, Equipe, Activite, Challenge"):
         Formation(db_conn)
         Equipe(db_conn)
         Activite(db_conn)
         Challenge(db_conn)
     
-    for _ in range(row_number):
+    print("Insertion dans Etudiant...")
+    for _ in tqdm(range(row_number), desc="Etudiant"):
         Etudiant(db_conn)
     
-    InscriptionChallenge(db_conn,row_number)
-    InscriptionActivite(db_conn,row_number)
+    print("Insertion dans InscriptionChallenge...")
+    InscriptionChallenge(db_conn, row_number)
+
+    print("Insertion dans InscriptionActivite...")
+    InscriptionActivite(db_conn, row_number)
+
 
 def delete_data_for_all_table(db_conn):
     tables=["etudiant","inscription_activite","inscription_challenge","activite","equipe","formation","challenge"]
