@@ -23,7 +23,7 @@ CREATE TABLE equipe (
     id_equipe SERIAL PRIMARY KEY,
     nom VARCHAR(255),
     slogan VARCHAR(255),
-    nb_points INT DEFAULT 0,
+    nb_points INT DEFAULT 0
 );
 
 CREATE TABLE etudiant (
@@ -46,7 +46,7 @@ CREATE TABLE activite (
     duree INT,
     descriptif TEXT,
     nb_points INT,
-    nb_max INT,
+    nb_max INT
 );
 
 CREATE TABLE inscription_activite (
@@ -65,7 +65,7 @@ CREATE TABLE challenge (
     duree INT,
     descriptif TEXT,
     nb_points INT,
-    nb_equipes INT,
+    nb_equipes INT
 );
 
 CREATE TABLE inscription_challenge (
