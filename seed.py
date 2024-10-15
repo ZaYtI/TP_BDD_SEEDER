@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 import json
 
 
-#Load JSON field in constant
 with open('city.json', 'r') as fichier:
     CITY = json.load(fichier)
 
@@ -16,9 +15,6 @@ with open('activity.json', 'r') as fichier:
 
 with open('activity.json', 'r') as fichier:
     CHALLENGE = json.load(fichier)
-
-with open('team.json', 'r') as fichier:
-    TEAM = json.load(fichier)
 
 
 
@@ -68,8 +64,8 @@ class BaseTable:
     def close(self):
         self.cur.close()
 
-    def get_list_of_id_in_table(self, table_name):
-        query = f"SELECT id FROM {table_name};"
+    def get_list_of_id_in_table(self, table_name,id_column_name):
+        query = f"SELECT {id_column_name} FROM {table_name};"
         self.cur.execute(query)
         ids = self.cur.fetchall()
         return [row[0] for row in ids]
@@ -96,10 +92,9 @@ class Activite(BaseTable):
 class Equipe(BaseTable):
     def __init__(self, db_conn):
         super().__init__(db_conn)
-        team = random.choice(TEAM)
         self.table_name = "Equipe"
         self.attributes = {
-            "nom": team['name'],
+            "nom": f'{self.fake.city_prefix} {self.fake.first_name}',
             "slogan": self.fake.catch_phrase(),
             "nb_points": random.randint(0,1000)
         }
@@ -114,8 +109,8 @@ class Etudiant(BaseTable):
             "prenom":self.fake.first_name(),
             "adresse":self.fake.address(),
             "nb_points": random.randint(0,1000),
-            "id_formation": random.choice(self.get_list_of_id_in_table('Formation')),
-            "id_equipe": random.choice(self.get_list_of_id_in_table('Equipe'))
+            "id_formation": random.choice(self.get_list_of_id_in_table('Formation','id_formation')),
+            "id_equipe": random.choice(self.get_list_of_id_in_table('Equipe','id_equipe'))
         }
         self.create(self.table_name, self.attributes)
 
@@ -137,23 +132,29 @@ class Challenge(BaseTable):
         self.table_name = "Challenge"
         challenge = random.choice(CHALLENGE)
         self.attributes = {
-            "nom": f"Challenge : {challenge["name"]}",
+            "nom": f"Challenge : {challenge['name']}",
             "date_challenge": self.fake.date(),
             "lieu":self.fake.country(),
             "duree":random.randint(1,120),
             "descriptif":self.fake.text()
         }
-        ACTIVITY.remove(challenge)
+        CHALLENGE.remove(challenge)
         self.create(self.table_name,self.attributes)
 
 class InscriptionActivite(BaseTable):
 
     def __init__(self, db_conn):
         super().__init__(db_conn)
-        self.table_name = "InscriptionActivite"
+        self.table_name = "inscription_activite"
+        list_of_row = [
+            {
+                "id_activite":random.choice(self.get_list_of_id_in_table('Activite','id_activite')),
+                "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant','id_etudiant'))
+            }
+        ]
         self.attributes = {
-            "id_activite": random.choice(self.get_list_of_id_in_table('Activite')),
-            "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant')),
+            "id_activite": random.choice(self.get_list_of_id_in_table('Activite','id_activite',list_of_row)),
+            "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant','id_etudiant',list_of_row)),
         }
         self.create(self.table_name,self.attributes)
 
@@ -161,10 +162,10 @@ class InscriptionChallenge(BaseTable):
 
     def __init__(self, db_conn):
         super().__init__(db_conn)
-        self.table_name = "InscriptionChallenge"
+        self.table_name = "inscription_challenge"
         self.attributes = {
-            "id_challenge": random.choice(self.get_list_of_id_in_table('Challenge')),
-            "id_equipe":random.choice(self.get_list_of_id_in_table('Equipe')),
+            "id_challenge": random.choice(self.get_list_of_id_in_table('Challenge','id_challenge')),
+            "id_equipe":random.choice(self.get_list_of_id_in_table('Equipe','id_equipe')),
         }
         self.create(self.table_name,self.attributes)
 
