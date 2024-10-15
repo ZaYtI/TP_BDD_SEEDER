@@ -16,6 +16,8 @@ with open('activity.json', 'r') as fichier:
 with open('activity.json', 'r') as fichier:
     CHALLENGE = json.load(fichier)
 
+LIST_OF_INSCRIPTION_ROW = []
+
 
 
 class DatabaseConnection:
@@ -69,6 +71,12 @@ class BaseTable:
         self.cur.execute(query)
         ids = self.cur.fetchall()
         return [row[0] for row in ids]
+
+    def count_element(self, table_name):
+        query = f"SELECT COUNT(*) FROM {table_name};"
+        self.cur.execute(query)
+        result = self.cur.fetchone()
+        return result[0]
 
 class Activite(BaseTable):
     def __init__(self, db_conn):
@@ -141,33 +149,53 @@ class Challenge(BaseTable):
         CHALLENGE.remove(challenge)
         self.create(self.table_name,self.attributes)
 
-class InscriptionActivite(BaseTable):
-
-    def __init__(self, db_conn):
-        super().__init__(db_conn)
-        self.table_name = "inscription_activite"
-        list_of_row = [
-            {
-                "id_activite":random.choice(self.get_list_of_id_in_table('Activite','id_activite')),
-                "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant','id_etudiant'))
-            }
-        ]
-        self.attributes = {
-            "id_activite": random.choice(self.get_list_of_id_in_table('Activite','id_activite',list_of_row)),
-            "id_etudiant":random.choice(self.get_list_of_id_in_table('Etudiant','id_etudiant',list_of_row)),
-        }
-        self.create(self.table_name,self.attributes)
-
 class InscriptionChallenge(BaseTable):
 
-    def __init__(self, db_conn):
+    def insert_inscription_challenge(self):
+        insert_row = 0
+        for i in range(1,self.row + 1):
+            if(insert_row < self.row):
+                nb_equipe = random.randint(1,10)
+                list_of_id_equipe = random.sample(self.get_list_of_id_in_table('Equipe','id_equipe'),nb_equipe)
+                for j in list_of_id_equipe:
+                    attributes={
+                        "id_challenge": i,
+                        "id_equipe": j
+                    }
+                    self.create(self.table_name,attributes)
+                    insert_row+=1
+            else:
+                break
+
+    def __init__(self, db_conn,row):
         super().__init__(db_conn)
         self.table_name = "inscription_challenge"
-        self.attributes = {
-            "id_challenge": random.choice(self.get_list_of_id_in_table('Challenge','id_challenge')),
-            "id_equipe":random.choice(self.get_list_of_id_in_table('Equipe','id_equipe')),
-        }
-        self.create(self.table_name,self.attributes)
+        self.row = row
+        self.insert_inscription_challenge()
+
+class InscriptionActivite(BaseTable):
+    def insert_inscription_activite(self):
+        insert_row = 0
+        for i in range(1,self.row + 1):
+            if(insert_row < self.row):
+                nb_etu = random.randint(1,10)
+                list_of_id_etu = random.sample(self.get_list_of_id_in_table('Etudiant','id_etudiant'),nb_etu)
+                for j in list_of_id_etu:
+                    attributes={
+                        "id_activite": i,
+                        "id_etudiant": j
+                    }
+                    self.create(self.table_name,attributes)
+                    insert_row+=1
+            else:
+                break
+
+    def __init__(self, db_conn,row):
+        super().__init__(db_conn)
+        self.table_name = "inscription_activite"
+        self.row = row
+        self.insert_inscription_activite()
+
 
 def main():  
     load_dotenv()
@@ -272,8 +300,9 @@ def insert_in_all_table(row_number,db_conn):
     
     for _ in range(row_number):
         Etudiant(db_conn)
-        InscriptionActivite(db_conn)
-        InscriptionChallenge(db_conn)
+    
+    InscriptionChallenge(db_conn,row_number)
+    InscriptionActivite(db_conn,row_number)
 
 def delete_data_for_all_table(db_conn):
     tables=["etudiant","inscription_activite","inscription_challenge","activite","equipe","formation","challenge"]
@@ -285,6 +314,7 @@ def delete_data_for_all_table(db_conn):
         cur.execute(reset_increment)
     db_conn.commit()
     cur.close()
+
 
 if __name__ == "__main__":
     main()
