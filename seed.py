@@ -73,7 +73,7 @@ class Activite(BaseTable):
         self.attributes = {
             "Nom": f'{self.fake.first_name} {self.fake.city_suffix}',
             "date_activite": self.fake.date_this_century(False,True),
-            "lieu": self.fake.city_name(),
+            "lieu": self.fake.city(),
             "duree": random.randint(1,120),
             "descriptif": self.fake.text(),
             "nb_points": random.randint(0,1000),
