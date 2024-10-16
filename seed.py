@@ -37,8 +37,16 @@ def create_batch(conn, table_name, attributes_list):
 def delete_all_data(conn):
     tables = ["etudiant", "inscription_activite", "inscription_challenge", "activite", "equipe", "formation", "challenge"]
     cur = conn.cursor()
-    for table in tables:
+    for table in tqdm(tables, desc="Suppression des données", unit="table"):
         cur.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE;")
+    conn.commit()
+    cur.close()
+
+def delete_inscription_data(conn):
+    tables = ["inscription_activite", "inscription_challenge"]
+    cur = conn.cursor()
+    for table in tqdm(tables, desc="Suppression des inscriptions", unit="table"):
+        cur.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY;")
     conn.commit()
     cur.close()
 
@@ -99,27 +107,87 @@ def generate_etudiant_data(conn, row_number):
 
 def insert_inscription_challenge(conn, row_number):
     id_equipe = get_list_of_ids(conn, 'Equipe', 'id_equipe')
+    id_challenge = get_list_of_ids(conn, 'Challenge', 'id_challenge')
+    
+    if len(id_challenge) == 0:
+        print("Aucun challenge n'existe dans la table 'Challenge'.")
+        return
+    if len(id_equipe) == 0:
+        print("Aucune équipe n'existe dans la table 'Equipe'.")
+        return
+
     data = []
-    for i in tqdm(range(1, row_number + 1), desc="Insertion des challenges", unit="challenge"):
-        nb_equipe = random.randint(1, 10)
-        list_of_id_equipe = random.sample(id_equipe, nb_equipe)
-        for j in list_of_id_equipe:
-            data.append({"id_challenge": i, "id_equipe": j})
-    create_batch(conn, "inscription_challenge", data)
+    delete_inscription_data(conn)
+    existing_pairs = set()
+    insert_row = 0
+    
+    for _ in tqdm(range(row_number), desc="Insertion des inscriptions challenge", unit="inscription"):
+        challenge_id = random.choice(id_challenge)
+        nb_equipes = random.randint(1, len(id_equipe))
+        list_of_id_equipe = random.sample(id_equipe, nb_equipes)
+
+        for equipe_id in list_of_id_equipe:
+            pair = (challenge_id, equipe_id)
+
+            if pair not in existing_pairs:
+                data.append({"id_challenge": challenge_id, "id_equipe": equipe_id})
+                existing_pairs.add(pair)
+                insert_row+=1
+        if(insert_row >= row_number):
+            break
+    
+    if data:
+        create_batch(conn, "inscription_challenge", data)
+        print("Insertion des inscriptions dans 'inscription_challenge' terminée avec succès.")
+    else:
+        print("Aucune inscription unique à insérer.")
+
+
 
 def insert_inscription_activite(conn, row_number):
     id_etudiant = get_list_of_ids(conn, 'Etudiant', 'id_etudiant')
+    id_activite = get_list_of_ids(conn, 'Activite', 'id_activite')
+    
+    if len(id_activite) == 0:
+        print("Aucune activité n'existe dans la table 'Activite'.")
+        return
+    if len(id_etudiant) == 0:
+        print("Aucun étudiant n'existe dans la table 'Etudiant'.")
+        return
+
     data = []
-    for i in tqdm(range(1, row_number + 1), desc="Insertion des activités", unit="activité"):
-        nb_etu = random.randint(1, 10)
-        list_of_id_etu = random.sample(id_etudiant, nb_etu)
-        for j in list_of_id_etu:
-            data.append({"id_activite": i, "id_etudiant": j})
-    create_batch(conn, "inscription_activite", data)
+    delete_inscription_data(conn)
+    existing_pairs = set()  
+    insert_row = 0  
+
+    for _ in tqdm(range(row_number), desc="Insertion des inscriptions activité", unit="inscription"):
+        activity_id = random.choice(id_activite)
+        nb_etudiants = random.randint(1, len(id_etudiant))
+        list_of_id_etudiant = random.sample(id_etudiant, nb_etudiants)
+
+        for etudiant_id in list_of_id_etudiant:
+            pair = (activity_id, etudiant_id)
+
+            if pair not in existing_pairs:  
+                data.append({"id_activite": activity_id, "id_etudiant": etudiant_id})
+                existing_pairs.add(pair)  
+                insert_row += 1  
+                
+            if insert_row >= row_number:  
+                break
+        if insert_row >= row_number:  
+            break
+
+    if data:  
+        create_batch(conn, "inscription_activite", data)
+        print("Insertion des inscriptions dans 'inscription_activite' terminée avec succès.")
+    else:
+        print("Aucune inscription unique à insérer.")
+
 
 def insert_in_all_tables(conn, row_number):
     print("Insertion dans Formation, Equipe, Activite, Challenge...")
-    
+
     data_formations = generate_formation_data(row_number)
     data_equipes = generate_equipe_data(row_number)
     data_activites = generate_activite_data(row_number)
@@ -140,6 +208,30 @@ def insert_in_all_tables(conn, row_number):
     print("Insertion dans InscriptionActivite...")
     insert_inscription_activite(conn, row_number)
 
+def insert_in_single_table(conn, table_name, row_number):
+    if table_name == 'Formation':
+        data = generate_formation_data(row_number)
+    elif table_name == 'Equipe':
+        data = generate_equipe_data(row_number)
+    elif table_name == 'Activite':
+        data = generate_activite_data(row_number)
+    elif table_name == 'Challenge':
+        data = generate_challenge_data(row_number)
+    elif table_name == 'Etudiant':
+        data = generate_etudiant_data(conn, row_number)
+    elif table_name == 'Inscription_Challenge':
+        insert_inscription_challenge(conn, row_number)
+        return
+    elif table_name == 'Inscription_Activite':
+        insert_inscription_activite(conn, row_number)
+        return
+    else:
+        print("Table non valide.")
+        return
+    
+    create_batch(conn, table_name, data)
+    print(f"Insertion dans la table {table_name} terminée.")
+
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
     USER = os.getenv('USERNAME') or input('Entrer le nom utilisateur : ')
@@ -150,22 +242,45 @@ def get_database_credentials():
 
 def main_menu(conn):
     SEPARATOR = '/////////////////////////////////////////////////////'
-    print(f"\n{SEPARATOR}\n{SEPARATOR}\n")
-    print('1. Ajouter des données dans toutes les tables')
-    print('2. Supprimer tous les enregistrements de toutes les tables')
-    print('\n' + SEPARATOR + '\n' + SEPARATOR + '\n')
+    
+    while True:  # Boucle principale du menu
+        print(f"\n{SEPARATOR}\n{SEPARATOR}\n")
+        print('1. Ajouter des données dans toutes les tables')
+        print('2. Supprimer tous les enregistrements de toutes les tables')
+        print('3. Ajouter des données dans une table spécifique')
+        print('4. Quitter')
+        print(f"\n{SEPARATOR}\n{SEPARATOR}\n")
 
-    choice = int(input("Entrer votre choix :"))
+        try:
+            choice = int(input("Entrer votre choix :"))
 
-    if choice == 1:
-        row_number = int(input("Combien de tuples voulez-vous insérer dans chaque table : "))
-        insert_in_all_tables(conn, row_number)
-    elif choice == 2:
-        delete_all_data(conn)
-        print("Toutes les données ont été supprimées.")
-    else:
-        print('Erreur, sélectionner un nombre présent dans les choix possibles!')
-        main_menu(conn)
+            if choice == 1:
+                row_number = int(input("Combien de tuples voulez-vous insérer dans chaque table : "))
+                insert_in_all_tables(conn, row_number)
+            elif choice == 2:
+                delete_all_data(conn)
+                print("Toutes les données ont été supprimées.")
+            elif choice == 3:
+                print("Liste des tables :")
+                tables = ['Formation', 'Equipe', 'Activite', 'Challenge', 'Etudiant', 'Inscription_Challenge', 'Inscription_Activite']
+                for i, table in enumerate(tables, 1):
+                    print(f"{i}. {table}")
+                table_choice = int(input("Sélectionnez un numéro de table : "))
+                if 1 <= table_choice <= len(tables):
+                    table_name = tables[table_choice - 1]
+                    row_number = int(input(f"Combien de tuples voulez-vous insérer dans {table_name} : "))
+                    insert_in_single_table(conn, table_name, row_number)
+                else:
+                    print("Numéro invalide.")
+            elif choice == 4:
+                print("Fermeture du programme.")
+                break
+            else:
+                print("Erreur, sélectionner un nombre présent dans les choix possibles!")
+        except ValueError:
+            print("Entrée invalide, veuillez entrer un nombre.")
+        except Exception as e:
+            print(f"Une erreur s'est produite : {e}")
 
 if __name__ == "__main__":
     load_dotenv()
