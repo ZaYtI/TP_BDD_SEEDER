@@ -6,207 +6,139 @@ import os
 from dotenv import load_dotenv
 from tqdm import tqdm
 
+fake = Faker()
 
+def connect_to_database(database, username, server, password, port):
+    conn = psycopg2.connect(
+        database=database,
+        user=username,
+        host=server,
+        password=password,
+        port=port
+    )
+    return conn
 
-class DatabaseConnection:
-    def __init__(self, database, username, server, password, port):
-        self.database = database
-        self.username = username
-        self.server = server
-        self.password = password
-        self.port = port
-        self.conn = None
+def close_connection(conn):
+    if conn:
+        conn.close()
 
-    def connect(self):
-        if self.conn is None:
-            self.conn = psycopg2.connect(
-                database=self.database,
-                user=self.username,
-                host=self.server,
-                password=self.password,
-                port=self.port
-            )
-        return self.conn
+def create_batch(conn, table_name, attributes_list):
+    if not attributes_list:
+        return
+    cur = conn.cursor()
+    columns = ', '.join(attributes_list[0].keys())
+    placeholders = ', '.join(['%s'] * len(attributes_list[0]))
+    query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders});"
+    data = [tuple(attr.values()) for attr in attributes_list]
+    cur.executemany(query, data)
+    conn.commit()
+    cur.close()
 
-    def close(self):
-        if self.conn is not None:
-            self.conn.close()
-            self.conn = None
+def delete_all_data(conn):
+    tables = ["etudiant", "inscription_activite", "inscription_challenge", "activite", "equipe", "formation", "challenge"]
+    cur = conn.cursor()
+    for table in tables:
+        cur.execute(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE;")
+    conn.commit()
+    cur.close()
 
-class BaseTable:
-    def __init__(self, db_conn):
-        self.conn = db_conn
-        self.cur = self.conn.cursor()
-        self.fake = Faker()
+def get_list_of_ids(conn, table_name, id_column_name):
+    cur = conn.cursor()
+    query = f"SELECT {id_column_name} FROM {table_name};"
+    cur.execute(query)
+    ids = cur.fetchall()
+    cur.close()
+    return [row[0] for row in ids]
 
-    def create(self, table_name, attributes):
-        columns = ', '.join(attributes.keys())
-        placeholders = ', '.join(['%s'] * len(attributes))
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders});"
-        self.cur.execute(query, list(attributes.values()))
-        self.conn.commit()
+def generate_formation_data(row_number):
+    return [{
+        "diplome": random.choice(['Licence', 'Master', 'Doctorat', 'Diplôme', 'Certificat']),
+        "annee": fake.year(),
+        "departement": fake.country()
+    } for _ in range(row_number)]
 
-    def delete_all(self, table_name):
-        query = f"DELETE FROM {table_name};"
-        self.cur.execute(query)
-        self.conn.commit()
+def generate_equipe_data(row_number):
+    return [{
+        "nom": f'{fake.city_prefix()} {fake.first_name()}',
+        "slogan": fake.catch_phrase(),
+        "nb_points": random.randint(0, 1000)
+    } for _ in range(row_number)]
 
-    def close(self):
-        self.cur.close()
+def generate_activite_data(row_number):
+    return [{
+        "Nom": f'{fake.first_name()} {fake.city_suffix()}',
+        "date_activite": fake.date_this_century(False, True),
+        "lieu": fake.city(),
+        "duree": random.randint(1, 120),
+        "descriptif": fake.text(),
+        "nb_points": random.randint(0, 1000),
+        "nb_max": random.randint(0, 1000)
+    } for _ in range(row_number)]
 
-    def get_list_of_id_in_table(self, table_name,id_column_name):
-        query = f"SELECT {id_column_name} FROM {table_name};"
-        self.cur.execute(query)
-        ids = self.cur.fetchall()
-        return [row[0] for row in ids]
+def generate_challenge_data(row_number):
+    return [{
+        "nom": f"Challenge : {fake.prefix()} {fake.city_suffix()}",
+        "date_challenge": fake.date(),
+        "lieu": fake.country(),
+        "duree": random.randint(1, 120),
+        "descriptif": fake.text()
+    } for _ in range(row_number)]
 
-    def count_element(self, table_name):
-        query = f"SELECT COUNT(*) FROM {table_name};"
-        self.cur.execute(query)
-        result = self.cur.fetchone()
-        return result[0]
+def generate_etudiant_data(conn, row_number):
+    id_formation = get_list_of_ids(conn, 'Formation', 'id_formation')
+    id_equipe = get_list_of_ids(conn, 'Equipe', 'id_equipe')
 
-class Activite(BaseTable):
-    def __init__(self, db_conn):
-        super().__init__(db_conn)
-        self.table_name = "Activite"
-        self.attributes = {
-            "Nom": f'{self.fake.first_name} {self.fake.city_suffix}',
-            "date_activite": self.fake.date_this_century(False,True),
-            "lieu": self.fake.city(),
-            "duree": random.randint(1,120),
-            "descriptif": self.fake.text(),
-            "nb_points": random.randint(0,1000),
-            "nb_max": random.randint(0,1000)
-        }
-        self.create(self.table_name, self.attributes)
+    return [{
+        "nom": fake.last_name(),
+        "prenom": fake.first_name(),
+        "adresse": fake.address(),
+        "nb_points": random.randint(0, 1000),
+        "id_formation": random.choice(id_formation),
+        "id_equipe": random.choice(id_equipe)
+    } for _ in range(row_number)]
 
-class Equipe(BaseTable):
-    def __init__(self, db_conn):
-        super().__init__(db_conn)
-        self.table_name = "Equipe"
-        self.attributes = {
-            "nom": f'{self.fake.city_prefix} {self.fake.first_name}',
-            "slogan": self.fake.catch_phrase(),
-            "nb_points": random.randint(0,1000)
-        }
-        self.create(self.table_name, self.attributes)
+def insert_inscription_challenge(conn, row_number):
+    id_equipe = get_list_of_ids(conn, 'Equipe', 'id_equipe')
+    data = []
+    for i in tqdm(range(1, row_number + 1), desc="Insertion des challenges", unit="challenge"):
+        nb_equipe = random.randint(1, 10)
+        list_of_id_equipe = random.sample(id_equipe, nb_equipe)
+        for j in list_of_id_equipe:
+            data.append({"id_challenge": i, "id_equipe": j})
+    create_batch(conn, "inscription_challenge", data)
 
-class Etudiant(BaseTable):
-    def __init__(self, db_conn):
-        super().__init__(db_conn)
-        self.table_name = "Etudiant"
-        self.attributes = {
-            "nom":self.fake.last_name(),
-            "prenom":self.fake.first_name(),
-            "adresse":self.fake.address(),
-            "nb_points": random.randint(0,1000),
-            "id_formation": random.choice(self.get_list_of_id_in_table('Formation','id_formation')),
-            "id_equipe": random.choice(self.get_list_of_id_in_table('Equipe','id_equipe'))
-        }
-        self.create(self.table_name, self.attributes)
+def insert_inscription_activite(conn, row_number):
+    id_etudiant = get_list_of_ids(conn, 'Etudiant', 'id_etudiant')
+    data = []
+    for i in tqdm(range(1, row_number + 1), desc="Insertion des activités", unit="activité"):
+        nb_etu = random.randint(1, 10)
+        list_of_id_etu = random.sample(id_etudiant, nb_etu)
+        for j in list_of_id_etu:
+            data.append({"id_activite": i, "id_etudiant": j})
+    create_batch(conn, "inscription_activite", data)
 
-class Formation(BaseTable):
-    def __init__(self,db_conn):
-        super().__init__(db_conn)
-        self.table_name = "Formation"
-        self.attributes = {
-            "diplome" : random.choice(['Licence', 'Master', 'Doctorat', 'Diplôme', 'Certificat']),
-            "annee" : self.fake.year(),
-            "departement" : self.fake.country()
-        }
-        self.create(self.table_name,self.attributes)
-
-class Challenge(BaseTable):
+def insert_in_all_tables(conn, row_number):
+    print("Insertion dans Formation, Equipe, Activite, Challenge...")
     
-    def __init__(self,db_conn):
-        super().__init__(db_conn)
-        self.table_name = "Challenge"
-        self.attributes = {
-            "nom": f"Challenge : f'{self.fake.prefix()} {self.fake.city_suffix}'",
-            "date_challenge": self.fake.date(),
-            "lieu":self.fake.country(),
-            "duree":random.randint(1,120),
-            "descriptif":self.fake.text()
-        }
-        self.create(self.table_name,self.attributes)
+    data_formations = generate_formation_data(row_number)
+    data_equipes = generate_equipe_data(row_number)
+    data_activites = generate_activite_data(row_number)
+    data_challenges = generate_challenge_data(row_number)
 
-class InscriptionChallenge(BaseTable):
+    create_batch(conn, 'Formation', data_formations)
+    create_batch(conn, 'Equipe', data_equipes)
+    create_batch(conn, 'Activite', data_activites)
+    create_batch(conn, 'Challenge', data_challenges)
 
-    def insert_inscription_challenge(self):
-        insert_row = 0
-        for i in tqdm(range(1,self.row + 1), desc="Insertion des challenges"):
-                nb_equipe = random.randint(1,10)
-                list_of_id_equipe = random.sample(self.get_list_of_id_in_table('Equipe','id_equipe'),nb_equipe)
-                for j in list_of_id_equipe:
-                    if(insert_row <= self.row):
-                        attributes={
-                            "id_challenge": i,
-                            "id_equipe": j
-                        }
-                        self.create(self.table_name,attributes)
-                        insert_row+=1
-                    else:
-                        break
+    print("Insertion dans Etudiant...")
+    data_etudiants = generate_etudiant_data(conn, row_number)
+    create_batch(conn, 'Etudiant', data_etudiants)
 
-    def __init__(self, db_conn,row):
-        super().__init__(db_conn)
-        self.table_name = "inscription_challenge"
-        self.row = row
-        self.insert_inscription_challenge()
+    print("Insertion dans InscriptionChallenge...")
+    insert_inscription_challenge(conn, row_number)
 
-class InscriptionActivite(BaseTable):
-    def insert_inscription_activite(self):
-        insert_row = 0
-        
-        for i in tqdm(range(1,self.row + 1), desc="Insertion des activité"):
-                nb_etu = random.randint(1,10)
-                list_of_id_etu = random.sample(self.get_list_of_id_in_table('Etudiant','id_etudiant'),nb_etu)
-                for j in list_of_id_etu:
-                    if(insert_row <= self.row):
-                        attributes={
-                            "id_activite": i,
-                            "id_etudiant": j
-                        }
-                        self.create(self.table_name,attributes)
-                        insert_row+=1
-                    else:
-                        break
-
-    def __init__(self, db_conn,row):
-        super().__init__(db_conn)
-        self.table_name = "inscription_activite"
-        self.row = row
-        self.insert_inscription_activite()
-
-
-def main():  
-    load_dotenv()
-
-    DATABASE, USERNAME, SERVER, PASSWORD, PORT = get_database_credentials()
-    
-    
-    db_conn = DatabaseConnection(DATABASE, USERNAME, SERVER, PASSWORD, PORT).connect()
-    
-    first_menu_choice(db_conn)
-
-def first_menu_choice(db_conn):
-    SEPARATOR = '/////////////////////////////////////////////////////'
-    display_initial_menu(SEPARATOR)
-
-    choice = int(input("Entrer votre choix :"))
-    
-    if choice == 1:
-        row_number = int(input("Combien de tuples voulez-vous insérer dans chaque table : "))
-        insert_in_all_table(row_number, db_conn)
-    elif (choice == 2):
-        table_classes = get_table_classes()
-        handle_table_selection(table_classes, db_conn)
-    elif (choice == 3):
-        delete_data_for_all_table(db_conn)
-    else:
-        print('Erreur sélectionner un nombre présent dans les choix possible!!')
-        first_menu_choice(db_conn)
+    print("Insertion dans InscriptionActivite...")
+    insert_inscription_activite(conn, row_number)
 
 def get_database_credentials():
     DATABASE = os.getenv('DATABASE') or input("Entrer le nom de votre base de donnée : ")
@@ -216,94 +148,31 @@ def get_database_credentials():
     PORT = int(os.getenv('PORT')) or int(input('Entrer le port : '))
     return DATABASE, USER, SERVER, PASSWORD, PORT
 
-def display_initial_menu(separator):
-    print('\n')
-    print(separator)
-    print(separator)
-    print('\n')
-    print('1. Ajouter des données dans toutes les tables')
-    print('2. Ajouter des données en sélectionnant les tables')
-    print('3. Supprimer tout les enregistrement de tout les tables')
-    print('\n')
-    print(separator)
-    print(separator)
-    print('\n')
-
-def get_table_classes():
-    return {
-        1: Activite,
-        2: Equipe,
-        3: Etudiant,
-        4: Formation,
-        5: Challenge,
-        6: InscriptionActivite,
-        7: InscriptionChallenge
-    }
-
-def handle_table_selection(table_classes, db_conn):
-    while True:
-        display_table_selection_menu()
-        table_choice = int(input("Entrer le numéro de la table : "))
-
-        if table_choice == 8:
-            break
-
-        row_number = int(input("Entrer le nombre de tuples voulus : "))
-
-        if row_number != 0 and table_choice in table_classes:
-            for _ in range(row_number):
-                table_classes[table_choice](db_conn)
-
-def display_table_selection_menu():
+def main_menu(conn):
     SEPARATOR = '/////////////////////////////////////////////////////'
-    print('\n')
-    print(SEPARATOR)
-    print(SEPARATOR)
-    print('\n')
-    print("Choisissez les tables dans lesquelles vous voulez ajouter des données : ")
-    print("1. Activite")
-    print("2. Equipe")
-    print("3. Etudiant")
-    print("4. Formation")
-    print("5. Challenge")
-    print("6. InscriptionActivite")
-    print("7. InscriptionChallenge")
-    print("8. Quitter")
-    print('\n')
-    print(SEPARATOR)
-    print(SEPARATOR)
-    print('\n')
+    print(f"\n{SEPARATOR}\n{SEPARATOR}\n")
+    print('1. Ajouter des données dans toutes les tables')
+    print('2. Supprimer tous les enregistrements de toutes les tables')
+    print('\n' + SEPARATOR + '\n' + SEPARATOR + '\n')
 
-def insert_in_all_table(row_number, db_conn):
-    print("Insertion dans Formation, Equipe, Activite, Challenge...")
-    for _ in tqdm(range(row_number), desc="Formation, Equipe, Activite, Challenge"):
-        Formation(db_conn)
-        Equipe(db_conn)
-        Activite(db_conn)
-        Challenge(db_conn)
-    
-    print("Insertion dans Etudiant...")
-    for _ in tqdm(range(row_number), desc="Etudiant"):
-        Etudiant(db_conn)
-    
-    print("Insertion dans InscriptionChallenge...")
-    InscriptionChallenge(db_conn, row_number)
+    choice = int(input("Entrer votre choix :"))
 
-    print("Insertion dans InscriptionActivite...")
-    InscriptionActivite(db_conn, row_number)
-
-
-def delete_data_for_all_table(db_conn):
-    tables=["etudiant","inscription_activite","inscription_challenge","activite","equipe","formation","challenge"]
-    cur = db_conn.cursor()
-    for i in tables:
-        query = f"DELETE FROM {i};"
-        cur.execute(query)
-        reset_increment = f"TRUNCATE TABLE {i} RESTART IDENTITY CASCADE"
-        cur.execute(reset_increment)
-    db_conn.commit()
-    cur.close()
-
+    if choice == 1:
+        row_number = int(input("Combien de tuples voulez-vous insérer dans chaque table : "))
+        insert_in_all_tables(conn, row_number)
+    elif choice == 2:
+        delete_all_data(conn)
+        print("Toutes les données ont été supprimées.")
+    else:
+        print('Erreur, sélectionner un nombre présent dans les choix possibles!')
+        main_menu(conn)
 
 if __name__ == "__main__":
-    main()
+    load_dotenv()
+    DATABASE, USERNAME, SERVER, PASSWORD, PORT = get_database_credentials()
+    conn = connect_to_database(DATABASE, USERNAME, SERVER, PASSWORD, PORT)
+    
+    try:
+        main_menu(conn)
+    finally:
+        close_connection(conn)
